@@ -21,7 +21,9 @@ export const authOptions = {
   ],
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" as const },
-  allowDangerousEmailAccountLinking: process.env.NODE_ENV !== "production",
+  allowDangerousEmailAccountLinking:
+    (process.env.ALLOW_DANGEROUS_EMAIL_LINKING || "false").toLowerCase() === "true" ||
+    process.env.NODE_ENV !== "production",
   callbacks: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async jwt({ token, user, account }: any) {
