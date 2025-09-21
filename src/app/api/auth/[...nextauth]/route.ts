@@ -61,6 +61,12 @@ export const authOptions = {
       } catch (e) {
         console.error("signIn linking error", e);
       }
+      // Restrict sign-in to an allowlist of emails (comma-separated)
+      const allowedEmails = (process.env.ALLOWED_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+      if (allowedEmails.length > 0) {
+        const email = (user?.email || "").toLowerCase();
+        if (!allowedEmails.includes(email)) return false;
+      }
       return true;
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
