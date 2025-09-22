@@ -6,7 +6,7 @@ export default async function QrPage({ params }: { params: Promise<{ slug: strin
     const { slug } = await params;
     const event = await prisma.event.findUnique({ where: { slug } });
     if (!event) return notFound();
-    const base = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "";
+    const base = process.env.NEXT_PUBLIC_APP_URL;
     const galleryUrl = `${base}/g/${event.slug}`;
 
     const svgUrl = `/api/qr?slug=${encodeURIComponent(event.slug)}&format=svg`;
