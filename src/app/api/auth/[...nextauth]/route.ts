@@ -1,12 +1,12 @@
 import NextAuth from "next-auth/next";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
-import Google from "next-auth/providers/google";
+import GoogleProvider from "next-auth/providers/google";
 
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
-    Google({
+    GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
@@ -14,16 +14,17 @@ export const authOptions = {
           scope:
             "openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.file",
           access_type: "offline",
-          // prompt: "consent",
+          prompt: "consent",
         },
       },
-      allowDangerousEmailAccountLinking: true,
-    },),
+    }),
 
   ],
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" as const },
-  // allowDangerousEmailAccountLinking: true,
+  allowDangerousEmailAccountLinking:
+    (process.env.ALLOW_DANGEROUS_EMAIL_LINKING || "false").toLowerCase() === "true" ||
+    process.env.NODE_ENV !== "production",
   callbacks: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async jwt({ token, user, account }: any) {
@@ -91,8 +92,4 @@ export const authOptions = {
 const handler = NextAuth(authOptions as any);
 export { handler as GET, handler as POST };
 
-
-function GoogleProvider(arg0: { clientId: string; clientSecret: string; authorization: { params: { scope: string; access_type: string; prompt: string; }; }; }) {
-  throw new Error("Function not implemented.");
-}
 

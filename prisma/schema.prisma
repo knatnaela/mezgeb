@@ -95,6 +95,7 @@ model Event {
 
   owner User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   media Media[]
+  albums Album[]
   wishes Wish[]
 
   @@index([ownerId])
@@ -109,6 +110,7 @@ enum MediaStatus {
 model Media {
   id                String       @id @default(cuid())
   eventId           String
+  albumId           String?
   driveFileId       String
   fileName          String
   mimeType          String
@@ -126,8 +128,9 @@ model Media {
   featured          Boolean      @default(false)
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  album Album? @relation(fields: [albumId], references: [id], onDelete: SetNull)
 
-  @@index([eventId, status, createdAt])
+  @@index([eventId, albumId, status, createdAt])
 }
 
 model Wish {
@@ -141,4 +144,29 @@ model Wish {
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId, createdAt])
+}
+
+model Album {
+  id                   String   @id @default(cuid())
+  eventId              String
+  name                 String
+  slug                 String
+  description          String?
+  isDefault            Boolean  @default(false)
+  coverMediaId         String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Google Drive folders for this album
+  driveAlbumFolderId      String?
+  driveUploadsFolderId    String?
+  driveApprovedFolderId   String?
+  driveOriginalsFolderId  String?
+  driveExportsFolderId    String?
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  media Media[]
+
+  @@unique([eventId, slug])
+  @@index([eventId])
 }

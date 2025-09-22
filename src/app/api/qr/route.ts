@@ -4,10 +4,12 @@ import QRCode from "qrcode";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug");
+  const album = searchParams.get("album");
   const format = (searchParams.get("format") || "svg").toLowerCase();
   if (!slug) return NextResponse.json({ error: "Missing slug" }, { status: 400 });
 
-  const galleryUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXTAUTH_URL}/g/${slug}`;
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXTAUTH_URL;
+  const galleryUrl = album ? `${base}/g/${slug}/a/${album}` : `${base}/g/${slug}`;
 
   if (format === "png") {
     const dataUrl = await QRCode.toDataURL(galleryUrl, { margin: 1, scale: 8, color: { dark: "#000000", light: "#ffffffff" } });
