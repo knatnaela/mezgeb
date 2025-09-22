@@ -44,6 +44,8 @@ export default function AlbumGrid({ media, isOwner = false, albumId }: { media: 
     const current = openIdx != null ? media[openIdx] : null;
     const { addToast } = useToast();
     const [settingCover, setSettingCover] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [showDriveEmbed, setShowDriveEmbed] = useState(false);
 
     function onWheel(e: React.WheelEvent) {
         if (!current) return;
@@ -135,11 +137,17 @@ export default function AlbumGrid({ media, isOwner = false, albumId }: { media: 
         if (scale !== 1) { setTx(0); setTy(0); }
     }
 
+    useEffect(() => {
+        // Reset Drive embed fallback whenever the opened item changes
+        setShowDriveEmbed(false);
+        setMenuOpen(false);
+    }, [openIdx]);
+
     return (
         <>
             <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
                 {media.map((m, idx) => (
-                    <button key={m.id} className="block rounded overflow-hidden bg-white/5 text-left" onClick={() => open(idx)}>
+                    <button key={m.id} className="block rounded overflow-hidden bg-white/5 text-left relative" onClick={() => open(idx)}>
                         <div className="aspect-square flex items-center justify-center text-xs text-zinc-300">
                             {m.thumbnailLink ? (
                                 // eslint-disable-next-line @next/next/no-img-element
@@ -148,6 +156,15 @@ export default function AlbumGrid({ media, isOwner = false, albumId }: { media: 
                                 <span className="p-2 line-clamp-2 text-center">{m.fileName}</span>
                             )}
                         </div>
+                        {m.mimeType?.startsWith("video/") && (
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className="rounded-full bg-black/50 p-2">
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="white" aria-hidden>
+                                        <path d="M8 5v14l11-7z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        )}
                     </button>
                 ))}
             </div>
@@ -167,60 +184,94 @@ export default function AlbumGrid({ media, isOwner = false, albumId }: { media: 
                         onTouchEnd={onTouchEnd}
                         onDoubleClick={onDoubleClick}
                     >
-                        <div className="absolute top-2 right-2 flex gap-2">
-                            <button className="rounded bg-white/10 px-3 py-2" onClick={close}>Close</button>
-                            {current.webViewLink && (
-                                <a className="rounded bg-white/10 px-3 py-2" href={current.webViewLink} target="_blank">Open</a>
-                            )}
-                            <button className="rounded bg-white/10 px-3 py-2" onClick={resetView}>Reset</button>
-                            {isOwner && albumId && (
-                                <button
-                                    className="rounded bg-white/10 px-3 py-2 disabled:opacity-50"
-                                    disabled={settingCover}
-                                    onClick={async () => {
-                                        try {
-                                            setSettingCover(true);
-                                            const res = await fetch(`/api/albums/${albumId}`, {
-                                                method: "PATCH",
-                                                headers: { "Content-Type": "application/json" },
-                                                body: JSON.stringify({ coverMediaId: current.id }),
-                                            });
-                                            addToast({ message: res.ok ? "Cover set" : "Failed to set cover", type: res.ok ? "success" : "error" });
-                                        } catch {
-                                            addToast({ message: "Failed to set cover", type: "error" });
-                                        } finally {
-                                            setSettingCover(false);
-                                        }
-                                    }}
-                                >
-                                    Set as cover
-                                </button>
-                            )}
+                        <div className="absolute top-2 right-2 z-20">
                             <button
-                                className="rounded bg-white/10 px-3 py-2"
-                                onClick={() => {
-                                    const link = current.webViewLink ?? `https://drive.google.com/file/d/${current.driveFileId}/view`;
-                                    navigator.clipboard.writeText(link).then(() => addToast({ message: "Link copied", type: "success" })).catch(() => addToast({ message: "Copy failed", type: "error" }));
-                                }}
+                                aria-label="More options"
+                                className="rounded bg-white/10 p-2"
+                                onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onTouchStart={(e) => e.stopPropagation()}
+                                onDoubleClick={(e) => e.stopPropagation()}
                             >
-                                Copy link
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                                    <path d="M12 8a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
+                                </svg>
                             </button>
-                            <a
-                                className="rounded bg-white/10 px-3 py-2"
-                                href={`https://drive.google.com/uc?export=download&id=${current.driveFileId}`}
-                            >
-                                Download
-                            </a>
+                            {menuOpen && (
+                                <div className="absolute right-0 mt-2 w-48 rounded border border-white/10 bg-zinc-900/95 text-sm shadow-lg" onClick={(e) => e.stopPropagation()}>
+                                    <button className="w-full text-left px-3 py-2 hover:bg-white/10" onClick={() => { resetView(); setMenuOpen(false); }}>Reset view</button>
+                                    {current.webViewLink && (
+                                        <a className="block px-3 py-2 hover:bg-white/10" href={current.webViewLink} target="_blank" onClick={() => setMenuOpen(false)}>Open in Drive</a>
+                                    )}
+                                    <a className="block px-3 py-2 hover:bg-white/10" href={`/api/media/content?id=${current.id}`} onClick={() => setMenuOpen(false)}>Download</a>
+                                    <button
+                                        className="w-full text-left px-3 py-2 hover:bg-white/10"
+                                        onClick={() => {
+                                            const link = current.webViewLink ?? `https://drive.google.com/file/d/${current.driveFileId}/view`;
+                                            navigator.clipboard.writeText(link)
+                                                .then(() => addToast({ message: "Link copied", type: "success" }))
+                                                .catch(() => addToast({ message: "Copy failed", type: "error" }));
+                                            setMenuOpen(false);
+                                        }}
+                                    >Copy link</button>
+                                    {isOwner && albumId && (
+                                        <button
+                                            className="w-full text-left px-3 py-2 hover:bg-white/10 disabled:opacity-50"
+                                            disabled={settingCover}
+                                            onClick={async () => {
+                                                try {
+                                                    setSettingCover(true);
+                                                    const res = await fetch(`/api/albums/${albumId}`, {
+                                                        method: "PATCH",
+                                                        headers: { "Content-Type": "application/json" },
+                                                        body: JSON.stringify({ coverMediaId: current.id }),
+                                                    });
+                                                    addToast({ message: res.ok ? "Cover set" : "Failed to set cover", type: res.ok ? "success" : "error" });
+                                                } catch {
+                                                    addToast({ message: "Failed to set cover", type: "error" });
+                                                } finally {
+                                                    setSettingCover(false);
+                                                    setMenuOpen(false);
+                                                }
+                                            }}
+                                        >Set as cover</button>
+                                    )}
+                                    <button className="w-full text-left px-3 py-2 hover:bg-white/10" onClick={() => { setMenuOpen(false); close(); }}>Close</button>
+                                </div>
+                            )}
                         </div>
                         <div className="flex items-center justify-center">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={current.thumbnailLink ?? `https://drive.google.com/thumbnail?authuser=0&sz=w1000&id=${current.driveFileId}`}
-                                alt={current.fileName}
-                                className="max-h-[80vh] w-auto object-contain"
-                                style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})`, transition: isPanning ? "none" : "transform 0.05s linear" }}
-                                draggable={false}
-                            />
+                            {current.mimeType?.startsWith("video/") ? (
+                                // eslint-disable-next-line jsx-a11y/media-has-caption
+                                showDriveEmbed ? (
+                                    <iframe
+                                        src={`https://drive.google.com/file/d/${current.driveFileId}/preview`}
+                                        allow="autoplay; encrypted-media"
+                                        className="max-h-[80vh] w-full md:w-auto aspect-video"
+                                        style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})`, transition: isPanning ? "none" : "transform 0.05s linear" }}
+                                    />
+                                ) : (
+                                    <video
+                                        src={`/api/media/content?id=${current.id}`}
+                                        poster={current.thumbnailLink ?? undefined}
+                                        controls
+                                        playsInline
+                                        preload="metadata"
+                                        className="max-h-[80vh] w-auto object-contain"
+                                        style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})`, transition: isPanning ? "none" : "transform 0.05s linear" }}
+                                        onError={() => setShowDriveEmbed(true)}
+                                    />
+                                )
+                            ) : (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                    src={`/api/media/content?id=${current.id}`}
+                                    alt={current.fileName}
+                                    className="max-h-[80vh] w-auto object-contain"
+                                    style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})`, transition: isPanning ? "none" : "transform 0.05s linear" }}
+                                    draggable={false}
+                                />
+                            )}
                         </div>
                         <div className="absolute inset-y-0 left-0 flex items-center">
                             <button className="rounded bg-white/10 px-2 py-2 ml-2" onClick={prev} disabled={openIdx === 0}>‹</button>
