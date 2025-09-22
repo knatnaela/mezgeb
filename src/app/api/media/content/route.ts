@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { driveFromClient, getOAuthClientForUser } from "@/lib/google";
-import { Readable } from "node:stream";
+import { Readable as NodeReadable } from "node:stream";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +32,25 @@ export async function GET(req: NextRequest) {
         );
 
         const nodeStream = driveRes.data as unknown as NodeJS.ReadableStream;
-        const webStream = (Readable as any).toWeb ? (Readable as any).toWeb(nodeStream) : (nodeStream as any);
+
+        function toWeb(stream: NodeJS.ReadableStream): ReadableStream {
+            const maybeToWeb: unknown = (NodeReadable as unknown as { toWeb?: (s: NodeJS.ReadableStream) => ReadableStream }).toWeb;
+            if (typeof maybeToWeb === "function") return maybeToWeb(stream);
+            // Fallback: wrap Node stream into a Web ReadableStream
+            return new ReadableStream<Uint8Array>({
+                start(controller) {
+                    stream.on("data", (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)));
+                    stream.on("end", () => controller.close());
+                    stream.on("error", (err: Error) => controller.error(err));
+                },
+                cancel() {
+                    const s = stream as unknown as { destroy?: () => void };
+                    if (typeof s.destroy === "function") s.destroy();
+                },
+            });
+        }
+
+        const webStream = toWeb(nodeStream);
 
         const headers = new Headers();
         let contentType = media.mimeType || (driveRes.headers["content-type"] as string | undefined) || "application/octet-stream";
