@@ -17,7 +17,9 @@ export default async function AlbumPage({ params, searchParams }: { params: Prom
     const albumRow = await prisma.album.findFirst({ where: { eventId: event.id, slug: album } });
     if (!albumRow) return notFound();
 
-    const session = await getServerSession(authOptions as never);
+    // Cast session to any to accommodate differing NextAuth types
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session = (await getServerSession(authOptions as any)) as any;
     const isOwner = !!(session?.user?.id && event.ownerId === session.user.id);
 
     const media = await prisma.media.findMany({

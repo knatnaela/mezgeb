@@ -72,7 +72,7 @@ export default function AlbumGrid({ media, isOwner = false, albumId }: { media: 
         setIsPanning(false);
     }
 
-    function distance(a: Touch, b: Touch) {
+    function distance(a: { clientX: number; clientY: number }, b: { clientX: number; clientY: number }) {
         const dx = a.clientX - b.clientX;
         const dy = a.clientY - b.clientY;
         return Math.hypot(dx, dy);
